@@ -3,14 +3,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import animation
 
-
 ReferenceTime: np.datetime64 = np.datetime64('2021-08-18T00:00:00.000000000')
 
 
 class XlsParser:
-
-    def __init__(self, filename: str):
-        self.filename: str = filename
+    def __init__(self, filename):
+        self.filename = filename
         self.time = None
         self.millisecond = None
         self.status = None
@@ -70,34 +68,47 @@ if __name__ == "__main__":
     # Plotting
     # https://jakevdp.github.io/blog/2012/08/18/matplotlib-animation-tutorial/
     window_length_minutes = 30
+    time_shift_minutes = 1
 
-    window_length_ms = window_length_minutes * 60 * 1000
-    time_shift_ms = 60000
+    window_length_ms = int(window_length_minutes * 60 * 1000)
+    time_shift_ms = int(time_shift_minutes * 60 * 1000)
 
-    fig = plt.figure(figsize=(20, 2))
-    ax = plt.axes(xlim=(0, window_length_ms), ylim=(-2, 2))
-    line, = ax.plot([], [], lw=1, color='k')
-    line2, = ax.plot([], [], lw=1, color='r')
-    label = ax.text(2, 1.5, '', ha='left', va='center', fontsize=10, color="Red")
+    fig = plt.figure(figsize=(20, 4))
+    ax = plt.axes(xlim=(0, window_length_ms), ylim=(-8, 6))
+    ax.set_xlabel('Time window in ms')
+    ax.set_ylabel('Zone status')
+    ref, = ax.plot([], [], lw=1, color='k')
+    result, = ax.plot([], [], lw=1, color='b')
+    false_positives, = ax.plot([], [], lw=1, color='r')
+    false_negatives, = ax.plot([], [], lw=1, color='y')
+    label = ax.text(2, 4, '', ha='left', va='center', fontsize=10, color="Black")
+    ax.legend([ref, result, false_positives, false_negatives], ['Loop', 'TrafiCamAI', 'FP', 'FN'])
 
     # initialization function: plot the background of each frame
     def init():
-        line.set_data([], [])
-        line2.set_data([], [])
+        ref.set_data([], [])
+        result.set_data([], [])
+        false_positives.set_data([], [])
+        false_negatives.set_data([], [])
         label.set_text('')
-        return line, line2, label
+        return ref, result, false_positives, false_negatives, label
 
     def animate(i):
         t_begin = int(i*time_shift_ms)
-        t_end = int(i*time_shift_ms+window_length_ms)
-        # print(t_begin, t_end)
-        x = np.arange(0, window_length_ms)
-        y = Reference.sampled_status[t_begin:t_end]
-        y2 = Result.sampled_status[t_begin:t_end]
-        line.set_data(x, y)
-        line2.set_data(x, y2)
-        label.set_text(str(t_begin)+str('-')+str(t_end))
-        return line, line2, label
+        t_end = min(int(i*time_shift_ms+window_length_ms), Reference.sampled_status.size, Result.sampled_status.size)
+        print(t_begin, t_end)
+        xref = np.arange(0, window_length_ms)
+        yref = Reference.sampled_status[t_begin:t_end]
+        yres = Result.sampled_status[t_begin:t_end] - 2
+        yres_false_positives = np.maximum(Result.sampled_status[t_begin:t_end]-Reference.sampled_status[t_begin:t_end], 0 * xref) - 4
+        yres_false_negatives = np.minimum(Result.sampled_status[t_begin:t_end]-Reference.sampled_status[t_begin:t_end], 0 * xref) - 6
+
+        ref.set_data(xref, yref)
+        result.set_data(xref, yres)
+        false_positives.set_data(xref, yres_false_positives)
+        false_negatives.set_data(xref, yres_false_negatives)
+        label.set_text('Time range in minutes = '+str(t_begin/60000)+str(' - ')+str(t_end/60000))
+        return ref, result, false_positives, false_negatives, label
 
     plot_animation = True
 
