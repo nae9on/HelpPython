@@ -7,6 +7,13 @@ precision = 's'
 ReferenceTime = np.datetime64('2021-08-18T00:00:00.000000000')
 
 
+def count_consecutive(arr, n):
+    # pad a with False at both sides for edge cases when array starts or ends with n
+    d = np.diff(np.concatenate(([False], arr == n, [False])).astype(int))
+    # subtract indices when value changes from False to True from indices where value changes from True to False
+    return np.flatnonzero(d == -1) - np.flatnonzero(d == 1)
+
+
 class XlsParser:
     def __init__(self, filename):
         self.filename = filename
@@ -65,7 +72,11 @@ if __name__ == "__main__":
     FN = (Reference.sampled_status[min_index: max_index] == 1) & (Result.sampled_status[min_index: max_index] == 0)
     TN = (Reference.sampled_status[min_index: max_index] == 0) & (Result.sampled_status[min_index: max_index] == 0)
 
-    Precision = np.sum(TP) / (np.sum(TP) + np.sum(FP))
+    consecutive_FP = count_consecutive(FP, 1)
+    # Remove FP's longer than 3 minutes and smaller than 10 seconds
+    clipped_FP = consecutive_FP[(consecutive_FP > 0) & (consecutive_FP < 1e+10)]
+
+    Precision = np.sum(TP) / (np.sum(TP) + np.sum(clipped_FP))
     Sensitivity = np.sum(TP) / (np.sum(TP) + np.sum(FN))
 
     print("Precision", Precision)
@@ -126,20 +137,10 @@ if __name__ == "__main__":
         label.set_text('Time range = '+str(t_begin)+str(' - ')+str(t_end))
         return ref, result, yres_FP, yres_FN, label
 
-    plot_animation = True
+    plot_animation = False
 
     if plot_animation:
         anim = animation.FuncAnimation(fig=fig, func=animate, frames=int(Reference.sampled_timeline.size / time_shift),
                                        init_func=init, interval=200, blit=True)
         anim.save('./timeline.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
         # plt.show()
-
-
-# def count_consecutive(arr, n):
-#     # pad a with False at both sides for edge cases when array starts or ends with n
-#     d = np.diff(np.concatenate(([False], arr == n, [False])).astype(int))
-#     # subtract indices when value changes from False to True from indices where value changes from True to False
-#     return np.flatnonzero(d == -1) - np.flatnonzero(d == 1)
-
-
-# sum(count_consecutive(Reference.status, 1) > 1)
