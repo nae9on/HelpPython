@@ -78,9 +78,11 @@ if __name__ == "__main__":
 
     Precision = np.sum(TP) / (np.sum(TP) + np.sum(clipped_FP))
     Sensitivity = np.sum(TP) / (np.sum(TP) + np.sum(FN))
+    Accuracy = (np.sum(TP) + np.sum(TN)) / (np.sum(TP) + np.sum(clipped_FP) + np.sum(FN) + np.sum(TN))
 
     print("Precision", Precision)
     print("Sensitivity", Sensitivity)
+    print("Accuracy", Accuracy)
     print("End")
 
     # Plotting
