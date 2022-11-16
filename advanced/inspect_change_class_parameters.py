@@ -4,11 +4,11 @@ import sys
 
 
 data = {
-   "RandomInvert":{
-      "chance": "0.7"
+   "RandomInvert": {
+      "chance": 0.7
    },
    "RandomStretch": {
-      "factor": "10",
+      "factor": 10,
       "chance": 0.5,
       "max_stretch_percent": 76
    }
@@ -49,9 +49,13 @@ def get_augmentation_object(class_type, class_parameters: dict):
     for param in sig.parameters.values():
         if param.name == 'self':
             continue
+
+        if param.default is not inspect.Parameter.empty and class_parameters.get(param.name):
+            assert isinstance(param.default, type(class_parameters[param.name]))
+
         new_param = class_parameters.setdefault(param.name, param.default)
-        if new_param == inspect.Parameter.empty:
-            print('Parameter not present in json and also there is no default available')
+        if new_param is inspect.Parameter.empty:
+            print('Parameter not present in json and also there is no default available.')
             raise KeyError
         attributes.append(param.annotation(new_param))
 
@@ -69,4 +73,3 @@ if __name__ == "__main__":
     for key, value in data.items():
         augmentation_object = get_augmentation_object(classes[key], value)
         augmentation_object()
-        
