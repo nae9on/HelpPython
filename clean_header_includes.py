@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 import re
 import subprocess
-from typing import List, Tuple, Match
+from typing import List, Tuple, Match, AnyStr
 
 debug = True
 dry_run = False
@@ -27,6 +27,67 @@ def glob_file_by_pattern(parent_directory: Path, pattern="*") -> List[Path]:
     for path_object in parent_directory.rglob(pattern):
         files.append(path_object)
     return files
+
+
+def get_begin_end_block_indexes(list_matching_line_numbers):
+    begin_index = -1
+    end_index = -1
+    begin_end_line_numbers = {}
+    for index, line_num in enumerate(list_matching_line_numbers):
+        if begin_index == -1 and end_index == -1:
+            begin_index = index
+            end_index = index
+            continue
+
+        if line_num == list_matching_line_numbers[end_index] + 1:
+            end_index += 1
+            continue
+        else:
+            begin_end_line_numbers[list_matching_line_numbers[begin_index]] = list_matching_line_numbers[end_index]
+            begin_index = index
+            end_index = index
+
+    begin_end_line_numbers[list_matching_line_numbers[begin_index]] = list_matching_line_numbers[end_index]
+
+    # # Get the begin and end corresponding to the largest block
+    new_map = {}
+    for begin_line, end_line in begin_end_line_numbers.items():
+        new_map[begin_line] = end_line - begin_line + 1
+    target_index = max(new_map, key=new_map.get)
+
+    begin_line_number = target_index
+    end_line_number = begin_end_line_numbers[target_index]
+    return begin_end_line_numbers, begin_line_number, end_line_number
+
+
+def get_matching_lines(path_file: Path, pattern: str):
+    # Read all the lines in the file
+    lines: List[AnyStr] = []
+    with open(path_file, 'r') as fp:
+        lines = fp.readlines()
+
+    # Find lines matching a certain pattern
+    matching_lines: List[int] = []
+    for index, line in enumerate(lines):
+        matches = re.findall(pattern, line)
+        if matches:
+            matching_lines.append(index)
+
+    return lines, matching_lines
+
+
+def sort_block_of_lines_matching_pattern(path_file: Path, pattern: str):
+    lines, matching_lines = get_matching_lines(path_file, pattern)
+
+    begin_end_line_numbers, _, _ = get_begin_end_block_indexes(matching_lines)
+
+    for begin_line, end_line in begin_end_line_numbers.items():
+        lines_to_sort = lines[begin_line:end_line+1]
+        lines[begin_line:end_line+1] = sorted(set(lines_to_sort), reverse=True)
+
+    with open(path_file, 'w') as fp:
+        contents = "".join(lines)
+        fp.write(contents)
 
 
 class Lib:
@@ -81,7 +142,38 @@ class Lib:
     def process(self):
         self._pre_process()
         self._process_header_includes()
+        self._include_libs_in_cmakelists("detection", self.set_detection_libs_to_include)
+        self._include_libs_in_cmakelists("xstream", self.set_xstream_libs_to_include)
         self._post_process()
+
+    def _include_libs_in_cmakelists(self, lib_type, set_to_include):
+
+        # Find lines matching pattern
+        pattern = r"traf_lib_include\(\"" + lib_type + r"\" \"(.*)\"\)"
+        lines, matching_lines = get_matching_lines(self.path_main_cmakelists, pattern)
+
+        _, begin_line_number, end_line_number = get_begin_end_block_indexes(matching_lines)
+
+        print(begin_line_number, end_line_number)
+
+        # Prepare new includes
+        new_includes = lines[begin_line_number:end_line_number+1]
+        for item in set_to_include:
+            new_includes.append(f'traf_lib_include("{lib_type}" "{item}")\n')
+
+        new_includes = sorted(set(new_includes), reverse=True)
+
+        # Remove includes
+        lines = lines[0:begin_line_number] + lines[end_line_number+1:]
+
+        # Add lines
+        for item in new_includes:
+            lines.insert(begin_line_number, item)
+
+        with open(self.path_main_cmakelists, 'w') as fp:
+            contents = "".join(lines)
+            fp.write(contents)
+
 
     def _process_header_includes(self):
         private_h_files = glob_file_by_pattern(self.path_main_lib / "src", "*.h")
