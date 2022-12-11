@@ -1,5 +1,7 @@
+import logging
 from pathlib import Path
 import re
+import subprocess
 from typing import List, Tuple, Match
 
 debug = True
@@ -39,15 +41,15 @@ class Lib:
     def get_list_names_detection_libs(cls):
         _, sub_directories = get_files(cls.path_detection_libs)
         cls.list_names_detection_libs = [full_path.name for full_path in sub_directories]
-        print(f"Detection libs count = {len(cls.list_names_detection_libs)}")
-        print(cls.list_names_detection_libs, sep="\n")
+        logging.info(f"Detection libs count = {len(cls.list_names_detection_libs)}")
+        logging.info(f", ".join(cls.list_names_detection_libs))
 
     @classmethod
     def get_list_names_xstream_libs(cls):
         _, sub_directories = get_files(cls.path_xstream_libs)
         cls.list_names_xstream_libs = [full_path.name for full_path in sub_directories]
-        print(f"Xstream libs count = {len(cls.list_names_xstream_libs)}")
-        print(cls.list_names_xstream_libs, sep="\n")
+        logging.info(f"Xstream libs count = {len(cls.list_names_xstream_libs)}")
+        logging.info(f", ".join(cls.list_names_xstream_libs))
 
     def __init__(self, lib_name: str):
         self.set_detection_libs_to_include = set()
@@ -57,14 +59,24 @@ class Lib:
         self.path_main_lib: Path = Lib.path_detection_libs / lib_name
         self.path_main_cmakelists: Path = self.path_main_lib / "CMakeLists.txt"
 
-        self._pre_process()
-        self._post_process()
-
     def _pre_process(self):
-        pass
+        args = "/usr/bin/cmake --build /home/akadar/Git/elio2/qtcreator-build/WTZoneCounting/Desktop/Release --target clean"
+        completed_process = subprocess.run(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if completed_process.returncode != 0:
+            logging.critical(f"Failed target clean {self.path_main_lib.name}")
+            logging.error(completed_process.stdout)
+        else:
+            logging.critical(f"Passed target clean {self.path_main_lib.name}")
 
     def _post_process(self):
-        pass
+        args = "/usr/bin/cmake --build /home/akadar/Git/elio2/qtcreator-build/WTZoneCounting/Desktop/Release --target all -j 1"
+        # completed_process = subprocess.run(args, shell=True, capture_output=True, text=True)
+        completed_process = subprocess.run(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if completed_process.returncode != 0:
+            logging.critical(f"Failed target all {self.path_main_lib.name}")
+            logging.error(completed_process.stdout)
+        else:
+            logging.critical(f"Passed target all {self.path_main_lib.name}")
 
     def process(self):
         self._pre_process()
@@ -81,7 +93,7 @@ class Lib:
             self._do_replace_includes(file)
 
     def _do_replace_includes(self, path_source_file: Path):
-        print(path_source_file)
+        logging.debug(path_source_file)
 
         allowed_libs = []
         allowed_libs.extend(Lib.list_names_detection_libs)
@@ -115,26 +127,31 @@ class Lib:
         # print(matches)
         original_text = path_source_file.read_text()
         new_text, number_of_subs_made = re.subn(pattern, clean_include, original_text)
-        print(f"Number of matches found = {number_of_subs_made}\n")
+        logging.debug(f"Number of matches found = {number_of_subs_made}\n")
         if not dry_run and new_text != original_text:
             path_source_file.write_text(new_text)
 
 
-if __name__ == "__main__":
+def main():
     Lib.get_list_names_detection_libs()
     Lib.get_list_names_xstream_libs()
 
     lib = Lib("WTZoneCounting")
     lib.process()
 
-    print("detection libs:")
+    logging.info("detection libs:")
     for item in lib.set_detection_libs_to_include:
-        print(f'traf_lib_include("detection" "{item}")')
+        logging.info(f'traf_lib_include("detection" "{item}")')
 
-    print("\nxstream libs:")
+    logging.info("xstream libs:")
     for item in lib.set_xstream_libs_to_include:
-        print(f'traf_lib_include("xstream" "{item}")')
+        logging.info(f'traf_lib_include("xstream" "{item}")')
 
-    print("\nUnknown libs:")
+    logging.info("Unknown libs:")
     for item in lib.set_libs_not_included:
-        print(f'traf_lib_include("unknown" "{item}")')
+        logging.info(f'traf_lib_include("unknown" "{item}")')
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.CRITICAL, format='%(message)s')
+    main()
