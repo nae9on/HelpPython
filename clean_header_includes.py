@@ -178,8 +178,10 @@ class Lib:
         self._cmake_load_cache()
         self._clean_build()
         self._process_header_includes()
-        self._include_libs_in_cmakelists("detection", self.set_detection_libs_to_include)
-        self._include_libs_in_cmakelists("xstream", self.set_xstream_libs_to_include)
+        if self.set_detection_libs_to_include:
+            self._include_libs_in_cmakelists("detection", self.set_detection_libs_to_include)
+        if self.set_xstream_libs_to_include:
+            self._include_libs_in_cmakelists("xstream", self.set_xstream_libs_to_include)
         self._build()
         self._post_process()
 
@@ -264,20 +266,21 @@ def main():
     Lib.get_list_names_detection_libs()
     Lib.get_list_names_xstream_libs()
 
-    lib = Lib("WorldTrackerApplications")
-    lib.process()
+    for lib_name in Lib.list_names_detection_libs:
+        lib = Lib(lib_name)
+        lib.process()
 
-    logging.info("detection libs:")
-    for item in lib.set_detection_libs_to_include:
-        logging.info(f'traf_lib_include("detection" "{item}")')
+        logging.info("detection libs:")
+        for item in lib.set_detection_libs_to_include:
+            logging.info(f'traf_lib_include("detection" "{item}")')
 
-    logging.info("xstream libs:")
-    for item in lib.set_xstream_libs_to_include:
-        logging.info(f'traf_lib_include("xstream" "{item}")')
+        logging.info("xstream libs:")
+        for item in lib.set_xstream_libs_to_include:
+            logging.info(f'traf_lib_include("xstream" "{item}")')
 
-    logging.info("Unknown libs:")
-    for item in lib.set_libs_not_included:
-        logging.info(f'traf_lib_include("unknown" "{item}")')
+        logging.info("Unknown libs:")
+        for item in lib.set_libs_not_included:
+            logging.info(f'traf_lib_include("unknown" "{item}")')
 
 
 if __name__ == "__main__":
