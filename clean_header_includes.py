@@ -29,11 +29,17 @@ def glob_file_by_pattern(parent_directory: Path, pattern="*") -> List[Path]:
     return files
 
 
-def get_begin_end_block_indexes(list_matching_line_numbers):
+def get_begin_end_block_indexes(list_matching_line_numbers: List[int]):
+    """
+    Returns a map of begin-end matching line number pairs.
+    Also returns the begin-end corresponding to the largest matching block.
+    """
     begin_index = -1
     end_index = -1
     begin_end_line_numbers = {}
     for index, line_num in enumerate(list_matching_line_numbers):
+
+        # For the first line
         if begin_index == -1 and end_index == -1:
             begin_index = index
             end_index = index
@@ -43,13 +49,15 @@ def get_begin_end_block_indexes(list_matching_line_numbers):
             end_index += 1
             continue
         else:
-            begin_end_line_numbers[list_matching_line_numbers[begin_index]] = list_matching_line_numbers[end_index]
+            begin_end_line_numbers[list_matching_line_numbers[begin_index]] =\
+                list_matching_line_numbers[end_index]
             begin_index = index
             end_index = index
 
-    begin_end_line_numbers[list_matching_line_numbers[begin_index]] = list_matching_line_numbers[end_index]
+    begin_end_line_numbers[list_matching_line_numbers[begin_index]] = \
+        list_matching_line_numbers[end_index]
 
-    # # Get the begin and end corresponding to the largest block
+    # # Get begin-end corresponding to the largest block
     new_map = {}
     for begin_line, end_line in begin_end_line_numbers.items():
         new_map[begin_line] = end_line - begin_line + 1
