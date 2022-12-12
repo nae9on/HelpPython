@@ -2,9 +2,9 @@ import logging
 from pathlib import Path
 import re
 import subprocess
+import shutil
 from typing import List, Tuple, Match, AnyStr
 
-debug = True
 dry_run = False
 
 
@@ -124,34 +124,63 @@ class Lib:
         self.set_detection_libs_to_include = set()
         self.set_xstream_libs_to_include = set()
         self.set_libs_not_included = set()
-        self.path_main_binary_dir: Path = Lib.path_binary_dir / lib_name
+        self.lib_name = lib_name
+        self.path_main_binary_dir: Path = Lib.path_binary_dir / lib_name / "Desktop" / "Release"
         self.path_main_lib: Path = Lib.path_detection_libs / lib_name
         self.path_main_cmakelists: Path = self.path_main_lib / "CMakeLists.txt"
 
     def _pre_process(self):
-        args = "/usr/bin/cmake --build /home/akadar/Git/elio2/qtcreator-build/WTZoneCounting/Desktop/Release --target clean"
+        # rm -rf binary dir
+        shutil.rmtree(self.path_main_binary_dir.parent.parent, ignore_errors=True)
+        # make binary dir
+        self.path_main_binary_dir.mkdir(parents=True, exist_ok=True)
+
+    def _cmake_load_cache(self):
+        args = "/usr/bin/cmake"
+        args += " -S " + str(self.path_main_lib)
+        args += " -B " + str(self.path_main_binary_dir)
+        args += "  '-GCodeBlocks - Unix Makefiles' -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_PROJECT_INCLUDE_BEFORE:PATH=/home/akadar/qtcreator-6.0.0/share/qtcreator/package-manager/auto-setup.cmake -DQT_QMAKE_EXECUTABLE:STRING=/usr/lib/x86_64-linux-gnu/qt4/bin/qmake -DCMAKE_PREFIX_PATH:STRING=/usr -DCMAKE_C_COMPILER:STRING=/usr/lib/ccache/gcc -DCMAKE_CXX_COMPILER:STRING=/usr/lib/ccache/g++"
         completed_process = subprocess.run(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         if completed_process.returncode != 0:
-            logging.critical(f"Failed target clean {self.path_main_lib.name}")
+            logging.critical(f"Failed load cache {self.lib_name}")
             logging.error(completed_process.stdout)
         else:
-            logging.critical(f"Passed target clean {self.path_main_lib.name}")
+            logging.critical(f"Passed load cache {self.lib_name}")
 
-    def _post_process(self):
-        args = "/usr/bin/cmake --build /home/akadar/Git/elio2/qtcreator-build/WTZoneCounting/Desktop/Release --target all -j 1"
+    def _clean_build(self):
+        args = "/usr/bin/cmake"
+        args += " --build " + str(self.path_main_binary_dir)
+        args += " --target clean"
+        completed_process = subprocess.run(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        if completed_process.returncode != 0:
+            logging.critical(f"Failed target clean {self.lib_name}")
+            logging.error(completed_process.stdout)
+        else:
+            logging.critical(f"Passed target clean {self.lib_name}")
+
+    def _build(self):
+        args = "/usr/bin/cmake"
+        args += " --build " + str(self.path_main_binary_dir)
+        args += " --target all -j 16"
         # completed_process = subprocess.run(args, shell=True, capture_output=True, text=True)
         completed_process = subprocess.run(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         if completed_process.returncode != 0:
-            logging.critical(f"Failed target all {self.path_main_lib.name}")
+            logging.critical(f"Failed target all {self.lib_name}")
             logging.error(completed_process.stdout)
         else:
-            logging.critical(f"Passed target all {self.path_main_lib.name}")
+            logging.critical(f"Passed target all {self.lib_name}")
+
+    def _post_process(self):
+        pass
 
     def process(self):
         self._pre_process()
+        self._cmake_load_cache()
+        self._clean_build()
         self._process_header_includes()
         self._include_libs_in_cmakelists("detection", self.set_detection_libs_to_include)
         self._include_libs_in_cmakelists("xstream", self.set_xstream_libs_to_include)
+        self._build()
         self._post_process()
 
     def _include_libs_in_cmakelists(self, lib_type, set_to_include):
@@ -162,7 +191,7 @@ class Lib:
 
         _, begin_line_number, end_line_number = get_begin_end_block_indexes(matching_lines)
 
-        print(begin_line_number, end_line_number)
+        logging.debug(f"begin-end line numbers: {begin_line_number}, {end_line_number}")
 
         # Prepare new includes
         new_includes = lines[begin_line_number:end_line_number+1]
@@ -181,7 +210,6 @@ class Lib:
         with open(self.path_main_cmakelists, 'w') as fp:
             contents = "".join(lines)
             fp.write(contents)
-
 
     def _process_header_includes(self):
         private_h_files = glob_file_by_pattern(self.path_main_lib / "src", "*.h")
@@ -209,7 +237,7 @@ class Lib:
             lib_name: str = match_obj.group(1)
             header: str = match_obj.group(2)
 
-            if lib_name in Lib.list_names_detection_libs:
+            if lib_name in Lib.list_names_detection_libs and lib_name != self.lib_name:
                 self.set_detection_libs_to_include.add(lib_name)
             elif lib_name in Lib.list_names_xstream_libs:
                 self.set_xstream_libs_to_include.add(lib_name)
@@ -236,7 +264,7 @@ def main():
     Lib.get_list_names_detection_libs()
     Lib.get_list_names_xstream_libs()
 
-    lib = Lib("WTZoneCounting")
+    lib = Lib("WorldTrackerApplications")
     lib.process()
 
     logging.info("detection libs:")
