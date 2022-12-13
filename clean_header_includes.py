@@ -164,10 +164,13 @@ class Lib:
         args += " --target all -j 16"
         # completed_process = subprocess.run(args, shell=True, capture_output=True, text=True)
         completed_process = subprocess.run(args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        if completed_process.returncode != 0:
+        static_libs = glob_file_by_pattern(self.path_main_binary_dir, "*.a")
+        if completed_process.returncode != 0 or not static_libs:
             logging.critical(f"Failed target all {self.lib_name}")
             logging.error(completed_process.stdout)
         else:
+            for static_lib in static_libs:
+                logging.critical(f"Made {static_lib}")
             logging.critical(f"Passed target all {self.lib_name}")
 
     def _post_process(self):
