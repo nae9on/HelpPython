@@ -200,7 +200,10 @@ class Lib:
         lines, matching_lines = get_matching_lines(self.path_main_cmakelists, pattern)
 
         if not matching_lines:
-            logging.critical(f"No matching lines found for lib type {lib_type} in {self.path_main_cmakelists}")
+            logging.critical(f"No matching lines found for {lib_type} lib in {self.path_main_cmakelists} to include: ")
+            for item in set_to_include:
+                logging.critical(f"{item}")
+            return
 
         _, begin_line_number, end_line_number = get_begin_end_block_indexes(matching_lines)
 
@@ -233,7 +236,7 @@ class Lib:
         all_files = []
         all_files.extend(private_h_files)
         all_files.extend(cpp_files)
-        # all_files.extend(public_h_files)
+        all_files.extend(public_h_files)
         for file in all_files:
             self._do_replace_includes(file)
 
