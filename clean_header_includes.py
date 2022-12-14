@@ -174,7 +174,8 @@ class Lib:
             logging.critical(f"Passed target all {self.lib_name}")
 
     def _post_process(self):
-        pass
+        # rm -rf binary dir
+        shutil.rmtree(self.path_main_binary_dir.parent.parent, ignore_errors=True)
 
     def process(self):
         self._pre_process()
@@ -217,8 +218,10 @@ class Lib:
             fp.write(contents)
 
     def _process_header_includes(self):
-        private_h_files = glob_file_by_pattern(self.path_main_lib / "src", "*.h")
-        cpp_files = glob_file_by_pattern(self.path_main_lib / "src", "*.cpp")
+        # private_h_files = glob_file_by_pattern(self.path_main_lib / "src", "*.h")
+        # cpp_files = glob_file_by_pattern(self.path_main_lib / "src", "*.cpp")
+        private_h_files = glob_file_by_pattern(self.path_main_lib, "*.h")
+        cpp_files = glob_file_by_pattern(self.path_main_lib, "*.cpp")
         all_files = []
         all_files.extend(private_h_files)
         all_files.extend(cpp_files)
