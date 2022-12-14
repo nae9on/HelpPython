@@ -102,6 +102,9 @@ class Lib:
     path_source_dir = Path("/home/akadar/Git/elio2")
     path_binary_dir = Path("/home/akadar/Git/elio2/qtcreator-build")
     path_detection_libs: Path = path_source_dir / "detection" / "libs"
+    path_detection_inc: Path = path_source_dir / "detection" / "inc"
+    path_detection_mocks: Path = path_source_dir / "detection" / "mocks"
+    path_detection_test: Path = path_source_dir / "detection" / "test"
     path_xstream_libs: Path = path_source_dir / "xstream" / "libs"
     list_names_detection_libs: List[str] = None
     list_names_xstream_libs: List[str] = None
@@ -127,6 +130,7 @@ class Lib:
         self.lib_name = lib_name
         self.path_main_binary_dir: Path = Lib.path_binary_dir / lib_name / "Desktop" / "Release"
         self.path_main_lib: Path = Lib.path_detection_libs / lib_name
+        self.path_main_lib_inc: Path = Lib.path_detection_inc / lib_name
         self.path_main_cmakelists: Path = self.path_main_lib / "CMakeLists.txt"
 
     def _pre_process(self):
@@ -195,6 +199,9 @@ class Lib:
         pattern = r"traf_lib_include\(\"" + lib_type + r"\" \"(.*)\"\)"
         lines, matching_lines = get_matching_lines(self.path_main_cmakelists, pattern)
 
+        if not matching_lines:
+            logging.critical(f"No matching lines found for lib type {lib_type} in {self.path_main_cmakelists}")
+
         _, begin_line_number, end_line_number = get_begin_end_block_indexes(matching_lines)
 
         logging.debug(f"begin-end line numbers: {begin_line_number}, {end_line_number}")
@@ -222,9 +229,11 @@ class Lib:
         # cpp_files = glob_file_by_pattern(self.path_main_lib / "src", "*.cpp")
         private_h_files = glob_file_by_pattern(self.path_main_lib, "*.h")
         cpp_files = glob_file_by_pattern(self.path_main_lib, "*.cpp")
+        public_h_files = glob_file_by_pattern(self.path_main_lib_inc, "*.h")
         all_files = []
         all_files.extend(private_h_files)
         all_files.extend(cpp_files)
+        # all_files.extend(public_h_files)
         for file in all_files:
             self._do_replace_includes(file)
 
@@ -284,7 +293,7 @@ def main():
         for item in lib.set_xstream_libs_to_include:
             logging.info(f'traf_lib_include("xstream" "{item}")')
 
-        logging.info("Unknown libs:")
+        logging.critical("Unknown libs:")
         for item in lib.set_libs_not_included:
             logging.info(f'traf_lib_include("unknown" "{item}")')
 
