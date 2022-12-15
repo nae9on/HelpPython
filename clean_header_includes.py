@@ -6,6 +6,7 @@ import shutil
 from typing import List, Tuple, Match, AnyStr
 
 dry_run = False
+clean_which_lib = "detection"  # or "xstream"
 
 
 def get_files(parent_directory: Path) -> Tuple[List[Path], List[Path]]:
@@ -106,6 +107,7 @@ class Lib:
     path_detection_mocks: Path = path_source_dir / "detection" / "mocks"
     path_detection_test: Path = path_source_dir / "detection" / "test"
     path_xstream_libs: Path = path_source_dir / "xstream" / "libs"
+    path_xstream_inc: Path = path_source_dir / "xstream" / "inc"
     list_names_detection_libs: List[str] = None
     list_names_xstream_libs: List[str] = None
 
@@ -123,14 +125,19 @@ class Lib:
         logging.info(f"Xstream libs count = {len(cls.list_names_xstream_libs)}")
         logging.info(f", ".join(cls.list_names_xstream_libs))
 
-    def __init__(self, lib_name: str):
+    def __init__(self, lib_name: str, lib_type: str = "detection"):
         self.set_detection_libs_to_include = set()
         self.set_xstream_libs_to_include = set()
         self.set_libs_not_included = set()
         self.lib_name = lib_name
+        self.lib_type = lib_type
         self.path_main_binary_dir: Path = Lib.path_binary_dir / lib_name / "Desktop" / "Release"
-        self.path_main_lib: Path = Lib.path_detection_libs / lib_name
-        self.path_main_lib_inc: Path = Lib.path_detection_inc / lib_name
+        if lib_type == "detection":
+            self.path_main_lib: Path = Lib.path_detection_libs / lib_name
+            self.path_main_lib_inc: Path = Lib.path_detection_inc / lib_name
+        elif lib_type == "xstream":
+            self.path_main_lib: Path = Lib.path_xstream_libs / lib_name
+            self.path_main_lib_inc: Path = Lib.path_xstream_inc / lib_name
         self.path_main_cmakelists: Path = self.path_main_lib / "CMakeLists.txt"
 
     def _pre_process(self):
@@ -284,8 +291,11 @@ def main():
     Lib.get_list_names_detection_libs()
     Lib.get_list_names_xstream_libs()
 
-    for lib_name in Lib.list_names_detection_libs:
-        lib = Lib(lib_name)
+    name_of_libs_to_clean = Lib.list_names_detection_libs \
+        if clean_which_lib == "detection" else Lib.list_names_xstream_libs
+
+    for lib_name in name_of_libs_to_clean:
+        lib = Lib(lib_name, clean_which_lib)
         lib.process()
 
         logging.info("detection libs:")
